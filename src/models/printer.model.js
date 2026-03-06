@@ -25,7 +25,7 @@ export const PrinterModel = {
 
     async upsert(agentId, printerData) {
         const normalizedName = this.normalizePrinterName(printerData.name);
-        
+
         const {
             display_name, ip_address, status, ink_levels,
             pages_today, total_pages, last_print_time, vendor, is_network,
@@ -35,39 +35,47 @@ export const PrinterModel = {
         } = printerData;
 
         const [existing] = await pool.execute(
-            'SELECT id FROM agent_printers WHERE agent_id = ? AND name = ?',
+            'SELECT total_pages, pages_today FROM agent_printers WHERE agent_id = ? AND name = ?',
             [agentId, normalizedName]
         );
 
         if (existing.length > 0) {
+            const existingTotal = existing[0].total_pages || 0;
+            const existingToday = existing[0].pages_today || 0;
+
+            const finalTotalPages = Math.max(existingTotal, total_pages || 0);
+            const finalPagesToday = Math.max(existingToday, pages_today || 0);
+
+            console.log(`📊 Printer ${normalizedName}: DB total=${existingTotal}, Agent kirim=${total_pages}, Final=${finalTotalPages}`);
+
             await pool.execute(`
-                UPDATE agent_printers SET
-                    display_name = ?,
-                    ip_address = ?,
-                    status = ?,
-                    ink_levels = ?,
-                    pages_today = ?,
-                    total_pages = ?,
-                    last_print_time = ?,
-                    vendor = ?,
-                    is_network = ?,
-                    printer_status_detail = ?,
-                    low_ink_colors = ?,
-                    color_pages_today = ?,
-                    bw_pages_today = ?,
-                    color_pages_total = ?,
-                    bw_pages_total = ?,
-                    updated_at = NOW()
-                WHERE agent_id = ? AND name = ?
-            `, [
-                display_name || normalizedName, 
-                ip_address, 
-                status, 
+            UPDATE agent_printers SET
+                display_name = ?,
+                ip_address = ?,
+                status = ?,
+                ink_levels = ?,
+                pages_today = ?,
+                total_pages = ?,
+                last_print_time = ?,
+                vendor = ?,
+                is_network = ?,
+                printer_status_detail = ?,
+                low_ink_colors = ?,
+                color_pages_today = ?,
+                bw_pages_today = ?,
+                color_pages_total = ?,
+                bw_pages_total = ?,
+                updated_at = NOW()
+            WHERE agent_id = ? AND name = ?
+        `, [
+                display_name || normalizedName,
+                ip_address,
+                status,
                 JSON.stringify(ink_levels || {}),
-                pages_today, 
-                total_pages, 
-                last_print_time, 
-                vendor, 
+                finalPagesToday,
+                finalTotalPages,
+                last_print_time,
+                vendor,
                 is_network ? 1 : 0,
                 printer_status_detail || 'unknown',
                 low_ink_colors ? JSON.stringify(low_ink_colors) : null,
@@ -75,36 +83,36 @@ export const PrinterModel = {
                 bw_pages_today || 0,
                 color_pages_total || 0,
                 bw_pages_total || 0,
-                agentId, 
+                agentId,
                 normalizedName
             ]);
         } else {
             await pool.execute(`
-                INSERT INTO agent_printers (
-                    agent_id, name, display_name, ip_address, status, ink_levels,
-                    pages_today, total_pages, last_print_time, vendor, is_network,
-                    printer_status_detail, low_ink_colors,
-                    color_pages_today, bw_pages_today,
-                    color_pages_total, bw_pages_total,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            `, [
-                agentId, 
-                normalizedName, 
-                display_name || normalizedName, 
-                ip_address, 
-                status, 
+            INSERT INTO agent_printers (
+                agent_id, name, display_name, ip_address, status, ink_levels,
+                pages_today, total_pages, last_print_time, vendor, is_network,
+                printer_status_detail, low_ink_colors,
+                color_pages_today, bw_pages_today,
+                color_pages_total, bw_pages_total,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        `, [
+                agentId,
+                normalizedName,
+                display_name || normalizedName,
+                ip_address,
+                status,
                 JSON.stringify(ink_levels || {}),
-                pages_today, 
-                total_pages, 
-                last_print_time, 
-                vendor, 
+                pages_today || 0,
+                total_pages || 0,
+                last_print_time,
+                vendor,
                 is_network ? 1 : 0,
                 printer_status_detail || 'unknown',
                 low_ink_colors ? JSON.stringify(low_ink_colors) : null,
-                color_pages_today || 0, 
+                color_pages_today || 0,
                 bw_pages_today || 0,
-                color_pages_total || 0, 
+                color_pages_total || 0,
                 bw_pages_total || 0
             ]);
         }
@@ -112,7 +120,13 @@ export const PrinterModel = {
 
     async update(agentId, printerName, updates) {
         const normalizedName = this.normalizePrinterName(printerName);
-        
+
+        // Ambil data existing dulu
+        const [existing] = await pool.execute(
+            'SELECT total_pages, pages_today FROM agent_printers WHERE agent_id = ? AND name = ?',
+            [agentId, normalizedName]
+        );
+
         const fields = [];
         const values = [];
 
@@ -133,11 +147,27 @@ export const PrinterModel = {
         Object.entries(updates).forEach(([key, value]) => {
             const dbField = fieldMap[key];
             if (dbField && value !== undefined) {
-                fields.push(`${dbField} = ?`);
-                if (key === 'inkLevels' || key === 'lowInkColors') {
-                    values.push(JSON.stringify(value));
-                } else {
-                    values.push(value);
+
+                if (key === 'totalPages' && existing.length > 0) {
+                    const currentValue = existing[0].total_pages || 0;
+                    const newValue = Math.max(currentValue, value || 0);
+                    fields.push(`${dbField} = ?`);
+                    values.push(newValue);
+                    console.log(`Update totalPages: DB=${currentValue}, Request=${value}, Final=${newValue}`);
+                }
+                else if (key === 'pagesToday' && existing.length > 0) {
+                    const currentValue = existing[0].pages_today || 0;
+                    const newValue = Math.max(currentValue, value || 0);
+                    fields.push(`${dbField} = ?`);
+                    values.push(newValue);
+                }
+                else {
+                    fields.push(`${dbField} = ?`);
+                    if (key === 'inkLevels' || key === 'lowInkColors') {
+                        values.push(JSON.stringify(value));
+                    } else {
+                        values.push(value);
+                    }
                 }
             }
         });
@@ -149,7 +179,7 @@ export const PrinterModel = {
 
         await pool.execute(
             `UPDATE agent_printers SET ${fields.join(', ')} 
-             WHERE agent_id = ? AND name = ?`,
+         WHERE agent_id = ? AND name = ?`,
             values
         );
         return true;
@@ -218,13 +248,13 @@ export const PrinterModel = {
             `, [agentId, targetDate]);
 
             const totalPages = rows.reduce((sum, r) => sum + (r.total_pages || 0), 0);
-            
+
             return {
                 date: targetDate,
                 agentId,
                 totalPages,
-                printers: rows.map(r => ({ 
-                    name: r.printer_name, 
+                printers: rows.map(r => ({
+                    name: r.printer_name,
                     pages: r.total_pages,
                     colorPages: r.color_pages || 0,
                     bwPages: r.bw_pages || 0,
@@ -248,7 +278,7 @@ export const PrinterModel = {
             `, [targetDate]);
 
             const totalPages = rows.reduce((sum, r) => sum + (r.total_pages || 0), 0);
-            
+
             return {
                 date: targetDate,
                 totalPages,

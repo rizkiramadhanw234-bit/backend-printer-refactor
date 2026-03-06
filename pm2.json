@@ -1,0 +1,15 @@
+{
+  "apps": [
+    {
+      "name": "printer-backend",
+      "script": "npm",
+      "args": "start",
+      "log_date_format": "YYYY-MM-DD HH:mm:ss",
+      "error_file": "out.log",
+      "out_file": "out.log",
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  ]
+}
