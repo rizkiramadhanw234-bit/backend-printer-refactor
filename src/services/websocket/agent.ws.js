@@ -242,6 +242,11 @@ export class AgentWebSocket {
             const printerCopy = { ...printer, name: normalizedName };
 
             const processed = await this.printerService.processPrinterUpdate(agentId, printerCopy);
+
+            delete processed.pages_today;
+            delete processed.color_pages_today;
+            delete processed.bw_pages_today;
+
             await PrinterModel.upsert(agentId, processed);
         }
 
@@ -286,15 +291,17 @@ export class AgentWebSocket {
         try {
             let { printerName, pages, color } = data;
 
-            const normalizedName = this.normalizePrinterName(printerName);
+            // NORMALISASI: Hapus prefix [CANON WSD] 
+            const normalizedName = printerName.replace(/^\[[^\]]*\]\s*/, '').trim();
 
-            console.log(`🖨️ Print event: ${agentId} - ${normalizedName} - ${pages} pages ${color ? '(color)' : '(b/w)'} (original: ${printerName})`);
+            console.log(`🖨️ Print event: ${agentId} - ${normalizedName} - ${pages} pages (original: ${printerName})`);
 
+            // Simpan dengan nama yang sudah dinormalisasi
             await PrinterModel.savePrintEvent(agentId, normalizedName, pages, color || false);
 
-            console.log(`✅ Print event saved to database`);
+            console.log(`✅ Print event saved and totals updated`);
         } catch (error) {
-            console.log(`❌ Failed to save print event for ${agentId}:`, error);
+            console.log(`❌ Failed to save print event:`, error);
         }
     }
 
