@@ -4,8 +4,10 @@ import http from 'http';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import cron from 'node-cron';
 
-import { testConnection } from './src/config/database.js';
+
+import { testConnection, pool } from './src/config/database.js';
 import { connectionManager } from './src/services/websocket/connection.manager.js';
 import { AgentWebSocket } from './src/services/websocket/agent.ws.js';
 import { DashboardWebSocket } from './src/services/websocket/dashboard.ws.js';
@@ -57,6 +59,23 @@ app.use((err, req, res, next) => {
         error: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
         timestamp: new Date().toISOString()
     });
+});
+
+cron.schedule('0 0 * * *', async () => {
+    console.log('🔄 Resetting pages_today for all printers...');
+    try {
+        await pool.execute(`
+            UPDATE agent_printers 
+            SET pages_today = 0,
+                color_pages_today = 0,
+                bw_pages_today = 0
+        `);
+        console.log('✅ pages_today reset successfully');
+    } catch (error) {
+        console.error('❌ Failed to reset pages_today:', error.message);
+    }
+}, {
+    timezone: "Asia/Jakarta"
 });
 
 const PORT = process.env.PORT || 15000;
