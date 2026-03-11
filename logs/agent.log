@@ -7585,3 +7585,7 @@
 [2026-03-05 12:08:44.825] [INFO] Daily report from AGENT_E84E6SJ2_IHR1EB: 57 pages
 [2026-03-05 12:08:44.880] [INFO] Received 1 printers from AGENT_E84E6SJ2_IHR1EB
 [2026-03-05 12:08:54.887] [INFO] Received 1 printers from AGENT_E84E6SJ2_IHR1EB
+[2026-03-11 08:07:03.718] [ERROR] Agent AGENT_6YXF2FIV_WPWUAA not found in database
+[2026-03-11 08:07:03.721] [WARN] WebSocket closed before authentication for AGENT_6YXF2FIV_WPWUAA
+[2026-03-11 08:07:08.734] [ERROR] Agent AGENT_6YXF2FIV_WPWUAA not found in database
+[2026-03-11 08:07:08.735] [WARN] WebSocket closed before authentication for AGENT_6YXF2FIV_WPWUAA

@@ -10,55 +10,93 @@ export class ReportService {
      */
     async generateDailyReport(date = null, filters = {}) {
         const targetDate = date || new Date().toISOString().split('T')[0];
-        const { agentId, companyId, departmentId } = filters;
+        const { agentId, companyId } = filters;
 
         try {
-            // Get print data for the date
-            let printData;
+            // Coba dari daily_reports dulu (lebih reliable)
+            const params = [targetDate];
+            let agentFilter = '';
+
             if (agentId) {
-                printData = await PrinterModel.getDailyPrintData(agentId, targetDate);
-            } else {
-                printData = await PrinterModel.getDailyPrintData(null, targetDate);
+                agentFilter += ' AND dr.agent_id = ?';
+                params.push(agentId);
             }
 
-            // If no print data, try to get from daily_reports table
-            if (!printData || printData.printers.length === 0) {
-                const [rows] = await pool.execute(`
-          SELECT dr.*, a.name as agent_name, a.departement_id, d.company_id
-          FROM daily_reports dr
-          JOIN agents a ON dr.agent_id = a.id
-          LEFT JOIN departement d ON a.departement_id = d.id
-          WHERE dr.report_date = ?
-          ${agentId ? 'AND dr.agent_id = ?' : ''}
-          ${companyId ? 'AND d.company_id = ?' : ''}
-          ${departmentId ? 'AND a.departement_id = ?' : ''}
-        `, [targetDate, agentId, companyId, departmentId].filter(Boolean));
+            const [drRows] = await pool.execute(`
+            SELECT 
+                dr.agent_id,
+                dr.total_pages,
+                dr.printer_count,
+                a.name as agent_name
+            FROM daily_reports dr
+            JOIN agents a ON dr.agent_id = a.id
+            WHERE dr.report_date = ?
+            ${agentFilter}
+            ORDER BY dr.total_pages DESC
+        `, params);
 
-                if (rows.length > 0) {
-                    const totalPages = rows.reduce((sum, r) => sum + (r.total_pages || 0), 0);
+            if (drRows.length > 0) {
+                const totalPages = drRows.reduce((sum, r) => sum + parseInt(r.total_pages || 0), 0);
 
-                    return {
-                        date: targetDate,
-                        totalPages,
-                        agentCount: rows.length,
-                        byAgent: rows.map(r => ({
-                            agentId: r.agent_id,
-                            agentName: r.agent_name,
-                            pages: r.total_pages,
-                            printerCount: r.printer_count
-                        })),
-                        source: 'daily_reports'
-                    };
-                }
+                // Ambil detail printer dari print_history kalau ada
+                const phParams = [targetDate, targetDate];
+                if (agentId) phParams.push(agentId);
+
+                const [phRows] = await pool.execute(`
+                SELECT 
+                    agent_id,
+                    printer_name,
+                    SUM(pages) as pages
+                FROM print_history
+                WHERE print_date = ?
+                OR DATE(printed_at) = ?
+                ${agentId ? 'AND agent_id = ?' : ''}
+                GROUP BY agent_id, printer_name
+                ORDER BY pages DESC
+            `, phParams);
+
+                // Build byAgent dari daily_reports
+                const byAgent = drRows.map(r => ({
+                    agentId: r.agent_id,
+                    agentName: r.agent_name,
+                    pages: parseInt(r.total_pages || 0),
+                    printers: phRows
+                        .filter(p => p.agent_id === r.agent_id)
+                        .map(p => ({
+                            name: p.printer_name,
+                            pages: parseInt(p.pages || 0)
+                        }))
+                }));
+
+                // Build byPrinter dari print_history kalau ada, fallback ke byAgent
+                const byPrinter = phRows.length > 0
+                    ? phRows.map(p => ({
+                        name: p.printer_name,
+                        agentId: p.agent_id,
+                        agentName: drRows.find(r => r.agent_id === p.agent_id)?.agent_name || p.agent_id,
+                        pages: parseInt(p.pages || 0)
+                    }))
+                    : [];
+
+                return {
+                    date: targetDate,
+                    totalPages,
+                    agentCount: drRows.length,
+                    printerCount: byPrinter.length || drRows.reduce((sum, r) => sum + parseInt(r.printer_count || 0), 0),
+                    byAgent,
+                    byPrinter,
+                    source: 'daily_reports'
+                };
             }
 
-            // Format response
-            const byAgent = new Map();
-            const byPrinter = new Map();
+            // Fallback: coba dari print_history
+            const printData = await PrinterModel.getDailyPrintData(agentId || null, targetDate);
 
-            if (printData && printData.printers) {
+            if (printData && printData.printers.length > 0) {
+                const byAgent = new Map();
+                const byPrinter = new Map();
+
                 printData.printers.forEach(item => {
-                    // By agent
                     if (!byAgent.has(item.agentId)) {
                         byAgent.set(item.agentId, {
                             agentId: item.agentId,
@@ -68,34 +106,41 @@ export class ReportService {
                         });
                     }
                     const agent = byAgent.get(item.agentId);
-                    agent.pages += item.pages;
-                    agent.printers.push({
-                        name: item.name,
-                        pages: item.pages
-                    });
+                    agent.pages += parseInt(item.pages || 0);
+                    agent.printers.push({ name: item.name, pages: parseInt(item.pages || 0) });
 
-                    // By printer
-                    const printerKey = `${item.agentId}:${item.name}`;
-                    byPrinter.set(printerKey, {
+                    byPrinter.set(`${item.agentId}:${item.name}`, {
                         name: item.name,
                         agentId: item.agentId,
                         agentName: item.agentName || item.agentId,
-                        pages: item.pages
+                        pages: parseInt(item.pages || 0)
                     });
                 });
+
+                return {
+                    date: targetDate,
+                    totalPages: parseInt(printData.totalPages || 0),
+                    agentCount: byAgent.size,
+                    printerCount: byPrinter.size,
+                    byAgent: Array.from(byAgent.values()).sort((a, b) => b.pages - a.pages),
+                    byPrinter: Array.from(byPrinter.values()).sort((a, b) => b.pages - a.pages),
+                    source: 'print_history'
+                };
             }
 
+            // Kosong
             return {
                 date: targetDate,
-                totalPages: printData?.totalPages || 0,
-                agentCount: byAgent.size,
-                printerCount: byPrinter.size,
-                byAgent: Array.from(byAgent.values()).sort((a, b) => b.pages - a.pages),
-                byPrinter: Array.from(byPrinter.values()).sort((a, b) => b.pages - a.pages),
-                source: printData ? 'print_history' : 'none'
+                totalPages: 0,
+                agentCount: 0,
+                printerCount: 0,
+                byAgent: [],
+                byPrinter: [],
+                source: 'none'
             };
+
         } catch (error) {
-            console.log('Error generating daily report:', error);
+            console.error('Error generating daily report:', error);
             throw error;
         }
     }
@@ -109,25 +154,20 @@ export class ReportService {
         const endDate = new Date(year, month, 0).toISOString().split('T')[0];
 
         try {
-            const { agentId, companyId } = filters;
-            const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-            const endDate = new Date(year, month, 0).toISOString().split('T')[0];
-
-            // Get daily breakdown - kalo ga ada data, balikin array kosong
             let dailyData = [];
             try {
                 const [rows] = await pool.execute(`
-        SELECT 
-          DATE(printed_at) as print_date,
-          COALESCE(SUM(pages), 0) as total_pages,
-          COUNT(DISTINCT agent_id) as active_agents,
-          COUNT(DISTINCT printer_name) as active_printers
-        FROM print_history
-        WHERE printed_at BETWEEN ? AND ?
-        ${agentId ? 'AND agent_id = ?' : ''}
-        GROUP BY DATE(printed_at)
-        ORDER BY print_date
-      `, [startDate, endDate, agentId].filter(Boolean));
+                SELECT 
+                    DATE(printed_at) as print_date,
+                    COALESCE(SUM(pages), 0) as total_pages,
+                    COUNT(DISTINCT agent_id) as active_agents,
+                    COUNT(DISTINCT printer_name) as active_printers
+                FROM print_history
+                WHERE DATE(printed_at) BETWEEN ? AND ?
+                ${agentId ? 'AND agent_id = ?' : ''}
+                GROUP BY DATE(printed_at)
+                ORDER BY print_date
+            `, [startDate, endDate, agentId].filter(Boolean));
                 dailyData = rows;
             } catch (err) {
                 console.log('No print_history data yet');
@@ -135,90 +175,76 @@ export class ReportService {
 
             if (dailyData.length === 0) {
                 return {
-                    year,
-                    month,
+                    year, month,
                     summary: {
-                        totalPages: 0,
-                        averageDailyPages: 0,
-                        totalPrintJobs: 0,
-                        activeAgents: 0,
-                        activePrinters: 0,
-                        peakDay: null
+                        totalPages: 0, averageDailyPages: 0, totalPrintJobs: 0,
+                        activeAgents: 0, activePrinters: 0, peakDay: null
                     },
-                    dailyBreakdown: [],
-                    byAgent: [],
-                    byPrinter: []
+                    dailyBreakdown: [], byAgent: [], byPrinter: []
                 };
             }
 
-            // Get agent summary
             const [agentSummary] = await pool.execute(`
-        SELECT 
-          a.id as agent_id,
-          a.name as agent_name,
-          d.name as department_name,
-          c.name as company_name,
-          COUNT(DISTINCT ph.id) as print_count,
-          SUM(ph.pages) as total_pages,
-          MAX(ph.printed_at) as last_print
-        FROM agents a
-        LEFT JOIN print_history ph ON a.id = ph.agent_id 
-          AND ph.printed_at BETWEEN ? AND ?
-        LEFT JOIN departement d ON a.departement_id = d.id
-        LEFT JOIN company c ON d.company_id = c.id
-        WHERE 1=1
-        ${companyId ? 'AND c.id = ?' : ''}
-        GROUP BY a.id
-        HAVING total_pages > 0
-        ORDER BY total_pages DESC
-      `, [startDate, endDate, companyId].filter(Boolean));
+            SELECT 
+                a.id as agent_id, a.name as agent_name,
+                d.name as department_name, c.name as company_name,
+                COUNT(DISTINCT ph.id) as print_count,
+                SUM(ph.pages) as total_pages,
+                MAX(ph.printed_at) as last_print
+            FROM agents a
+            LEFT JOIN print_history ph ON a.id = ph.agent_id 
+                AND DATE(ph.printed_at) BETWEEN ? AND ?
+            LEFT JOIN departement d ON a.departement_id = d.id
+            LEFT JOIN company c ON d.company_id = c.id
+            WHERE 1=1
+            ${companyId ? 'AND c.id = ?' : ''}
+            GROUP BY a.id
+            HAVING total_pages > 0
+            ORDER BY total_pages DESC
+        `, [startDate, endDate, companyId].filter(Boolean));
 
-            // Get printer summary
             const [printerSummary] = await pool.execute(`
-        SELECT 
-          ap.name as printer_name,
-          ap.display_name,
-          ap.vendor,
-          a.id as agent_id,
-          a.name as agent_name,
-          COUNT(DISTINCT ph.id) as print_count,
-          SUM(ph.pages) as total_pages,
-          SUM(CASE WHEN ph.color = 1 THEN ph.pages ELSE 0 END) as color_pages,
-          SUM(CASE WHEN ph.color = 0 THEN ph.pages ELSE 0 END) as bw_pages
-        FROM agent_printers ap
-        JOIN agents a ON ap.agent_id = a.id
-        LEFT JOIN print_history ph ON ap.agent_id = ph.agent_id 
-          AND ap.name = ph.printer_name
-          AND ph.printed_at BETWEEN ? AND ?
-        WHERE 1=1
-        ${agentId ? 'AND a.id = ?' : ''}
-        ${companyId ? 'AND a.departement_id IN (SELECT id FROM departement WHERE company_id = ?)' : ''}
-        GROUP BY ap.id
-        HAVING total_pages > 0
-        ORDER BY total_pages DESC
-      `, [startDate, endDate, agentId, companyId].filter(Boolean));
+            SELECT 
+                ap.name as printer_name, ap.display_name, ap.vendor,
+                a.id as agent_id, a.name as agent_name,
+                COUNT(DISTINCT ph.id) as print_count,
+                SUM(ph.pages) as total_pages,
+                SUM(CASE WHEN ph.color = 1 THEN ph.pages ELSE 0 END) as color_pages,
+                SUM(CASE WHEN ph.color = 0 THEN ph.pages ELSE 0 END) as bw_pages
+            FROM agent_printers ap
+            JOIN agents a ON ap.agent_id = a.id
+            LEFT JOIN print_history ph ON ap.agent_id = ph.agent_id 
+                AND ap.name = ph.printer_name
+                AND DATE(ph.printed_at) BETWEEN ? AND ?
+            WHERE 1=1
+            ${agentId ? 'AND a.id = ?' : ''}
+            ${companyId ? 'AND a.departement_id IN (SELECT id FROM departement WHERE company_id = ?)' : ''}
+            GROUP BY ap.id
+            HAVING total_pages > 0
+            ORDER BY total_pages DESC
+        `, [startDate, endDate, agentId, companyId].filter(Boolean));
 
-            // Calculate totals
-            const totalPages = dailyData.reduce((sum, d) => sum + (d.total_pages || 0), 0);
+            // ← FIX UTAMA: parseInt() setiap value sebelum reduce
+            const totalPages = dailyData.reduce((sum, d) => sum + parseInt(d.total_pages || 0), 0);
             const avgDailyPages = dailyData.length > 0 ? Math.round(totalPages / dailyData.length) : 0;
 
-            // Find peak day
             const peakDay = dailyData.length > 0
-                ? dailyData.reduce((max, d) => d.total_pages > max.total_pages ? d : max, dailyData[0])
+                ? dailyData.reduce((max, d) =>
+                    parseInt(d.total_pages) > parseInt(max.total_pages) ? d : max,
+                    dailyData[0])
                 : null;
 
             return {
-                year,
-                month,
+                year, month,
                 summary: {
-                    totalPages,
+                    totalPages,  // ← sekarang number, bukan string
                     averageDailyPages: avgDailyPages,
-                    totalPrintJobs: agentSummary.reduce((sum, a) => sum + (a.print_count || 0), 0),
+                    totalPrintJobs: agentSummary.reduce((sum, a) => sum + parseInt(a.print_count || 0), 0),
                     activeAgents: agentSummary.length,
                     activePrinters: printerSummary.length,
                     peakDay: peakDay ? {
                         date: peakDay.print_date,
-                        pages: peakDay.total_pages
+                        pages: parseInt(peakDay.total_pages)
                     } : null
                 },
                 dailyBreakdown: dailyData,

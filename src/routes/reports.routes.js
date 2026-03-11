@@ -1,8 +1,8 @@
 import express from 'express';
 import { reportService } from '../services/report.service.js';
-import { 
-  validateDateRange, 
-  validateMonthlyReport 
+import {
+  validateDateRange,
+  validateMonthlyReport
 } from '../utils/validators.js';
 
 const router = express.Router();
@@ -11,7 +11,7 @@ const router = express.Router();
 router.get('/daily', validateDateRange, async (req, res) => {
   try {
     const { date, agentId, companyId } = req.query;
-    
+
     const report = await reportService.generateDailyReport(date, {
       agentId,
       companyId
@@ -32,10 +32,10 @@ router.get('/daily', validateDateRange, async (req, res) => {
 router.get('/monthly', validateMonthlyReport, async (req, res) => {
   try {
     const { year, month, agentId, companyId } = req.query;
-    
+
     const report = await reportService.generateMonthlyReport(
-      parseInt(year), 
-      parseInt(month), 
+      parseInt(year),
+      parseInt(month),
       { agentId, companyId }
     );
 
@@ -55,13 +55,13 @@ router.get('/printer/:printerName/lifetime', async (req, res) => {
   try {
     const { printerName } = req.params;
     const decodedName = decodeURIComponent(printerName);
-    
+
     const report = await reportService.generatePrinterLifetimeReport(decodedName);
 
     if (!report) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Printer not found' 
+      return res.status(404).json({
+        success: false,
+        error: 'Printer not found'
       });
     }
 
@@ -80,17 +80,17 @@ router.get('/company/:companyId', validateDateRange, async (req, res) => {
   try {
     const { companyId } = req.params;
     const { startDate, endDate } = req.query;
-    
+
     const report = await reportService.generateCompanyReport(
       companyId,
-      startDate || new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0],
+      startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       endDate || new Date().toISOString().split('T')[0]
     );
 
     if (!report) {
-      return res.status(404).json({ 
-        success: false, 
-        error: 'Company not found or no data' 
+      return res.status(404).json({
+        success: false,
+        error: 'Company not found or no data'
       });
     }
 
@@ -109,7 +109,7 @@ router.get('/company/:companyId', validateDateRange, async (req, res) => {
 router.get('/export', async (req, res) => {
   try {
     const { type, date, year, month, printerName } = req.query;
-    
+
     let reportData;
     let csv;
 
@@ -120,7 +120,7 @@ router.get('/export', async (req, res) => {
         break;
       case 'monthly':
         reportData = await reportService.generateMonthlyReport(
-          parseInt(year), 
+          parseInt(year),
           parseInt(month)
         );
         csv = await reportService.exportToCSV(reportData, 'monthly');
@@ -132,9 +132,9 @@ router.get('/export', async (req, res) => {
         csv = await reportService.exportToCSV(reportData, 'printer');
         break;
       default:
-        return res.status(400).json({ 
-          success: false, 
-          error: 'Invalid export type' 
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid export type'
         });
     }
 
