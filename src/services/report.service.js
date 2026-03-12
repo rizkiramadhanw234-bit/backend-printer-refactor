@@ -89,7 +89,6 @@ export class ReportService {
                 };
             }
 
-            // Fallback: coba dari print_history
             const printData = await PrinterModel.getDailyPrintData(agentId || null, targetDate);
 
             if (printData && printData.printers.length > 0) {
