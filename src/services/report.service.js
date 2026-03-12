@@ -119,7 +119,7 @@ export class ReportService {
 
                 return {
                     date: targetDate,
-                    totalPages: parseInt(printData.totalPages || 0),
+                    totalPages: Array.from(byAgent.values()).reduce((sum, a) => sum + a.pages, 0),
                     agentCount: byAgent.size,
                     printerCount: byPrinter.size,
                     byAgent: Array.from(byAgent.values()).sort((a, b) => b.pages - a.pages),
