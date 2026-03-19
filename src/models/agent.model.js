@@ -181,5 +181,10 @@ export const AgentModel = {
       FROM agents
     `);
         return stats[0] || {};
-    }
+    },
+
+    async delete(agentId) {
+        await pool.execute('DELETE FROM agents WHERE id = ?', [agentId]);
+        return true;
+    },
 };

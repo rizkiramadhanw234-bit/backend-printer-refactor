@@ -1,9 +1,9 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { 
-  registerAgent, 
-  handleAgentHeartbeat, 
-  syncPrinters 
+import {
+  registerAgent,
+  handleAgentHeartbeat,
+  syncPrinters
 } from '../controllers/agent.controller.js';
 import { AgentModel } from '../models/agent.model.js';
 import { PrinterModel } from '../models/printer.model.js';
@@ -30,7 +30,7 @@ const authenticateAgent = async (req, res, next) => {
     }
 
     const agent = await AgentModel.findByToken(token);
-    
+
     if (!agent || agent.id !== agentId) {
       return res.status(401).json({ success: false, error: "Invalid agent ID or token" });
     }
@@ -65,7 +65,7 @@ const authenticateApiKey = async (req, res, next) => {
     }
 
     const agent = await AgentModel.findByApiKey(apiKey);
-    
+
     if (!agent) {
       return res.status(401).json({ success: false, error: "Invalid API key" });
     }
@@ -86,7 +86,7 @@ const authenticateApiKey = async (req, res, next) => {
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const agents = await AgentModel.getAll();
-    
+
     res.json({
       success: true,
       count: agents.length,
@@ -133,13 +133,13 @@ router.get("/:agentId", authMiddleware, async (req, res) => {
   try {
     const { agentId } = req.params;
     const agent = await AgentModel.findById(agentId);
-    
+
     if (!agent) {
       return res.status(404).json({ success: false, error: "Agent not found" });
     }
 
     const printers = await PrinterModel.findByAgent(agentId);
-    
+
     res.json({
       success: true,
       agent: {
@@ -155,8 +155,8 @@ router.get("/:agentId", authMiddleware, async (req, res) => {
         platform: agent.platform,
         ip: agent.ip_address,
         macAddress: agent.mac_address,
-        apiKey: agent.api_key,                   
-        agentToken: agent.agent_token,           
+        apiKey: agent.api_key,
+        agentToken: agent.agent_token,
         createdAt: agent.created_at,
         updatedAt: agent.updated_at
       },
@@ -195,17 +195,17 @@ router.get("/:agentId", authMiddleware, async (req, res) => {
 router.get("/:id/api-key", authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     if (req.user.role !== 'admin') {
       return res.status(403).json({ success: false, error: 'Admin access required' });
     }
-    
+
     const agent = await AgentModel.findById(id);
-    
+
     if (!agent) {
       return res.status(404).json({ success: false, error: 'Agent not found' });
     }
-    
+
     res.json({
       success: true,
       agentId: id,
@@ -321,10 +321,10 @@ router.put("/:agentId/printer/:printerName", authenticateApiKey, async (req, res
     const { agentId, printerName } = req.params;
     const updates = req.body;
 
-    const allowedUpdates = ['status', 'printerStatusDetail', 'inkLevels', 'pagesToday', 
-                            'totalPages', 'lastPrintTime', 'colorPagesToday', 'bwPagesToday',
-                            'colorPagesTotal', 'bwPagesTotal', 'lowInkColors'];
-    
+    const allowedUpdates = ['status', 'printerStatusDetail', 'inkLevels', 'pagesToday',
+      'totalPages', 'lastPrintTime', 'colorPagesToday', 'bwPagesToday',
+      'colorPagesTotal', 'bwPagesTotal', 'lowInkColors'];
+
     const invalidFields = Object.keys(updates).filter(key => !allowedUpdates.includes(key));
     if (invalidFields.length > 0) {
       return res.status(400).json({
@@ -481,6 +481,28 @@ router.post("/:agentId/printer/resume", authenticateApiKey, async (req, res) => 
   } catch (error) {
     console.error("Error resuming printer:", error);
     res.status(500).json({ success: false, error: "Failed to resume printer" });
+  }
+});
+
+// Delete agent
+router.delete("/:agentId", authMiddleware, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+
+    const agent = await AgentModel.findById(agentId);
+    if (!agent) {
+      return res.status(404).json({ success: false, error: "Agent not found" });
+    }
+
+    await AgentModel.delete(agentId);
+
+    res.json({
+      success: true,
+      message: `Agent ${agentId} deleted successfully`
+    });
+  } catch (error) {
+    console.error("Error deleting agent:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
   }
 });
 
