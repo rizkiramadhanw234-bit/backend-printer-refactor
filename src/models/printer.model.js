@@ -61,10 +61,10 @@ export const PrinterModel = {
                 is_network = ?,
                 printer_status_detail = ?,
                 low_ink_colors = ?,
-                color_pages_today = ?,
-                bw_pages_today = ?,
-                color_pages_total = ?,
-                bw_pages_total = ?,
+                color_pages_today = COALESCE(NULLIF(?, 0), color_pages_today),
+                bw_pages_today = COALESCE(NULLIF(?, 0), bw_pages_today),
+                color_pages_total = COALESCE(NULLIF(?, 0), color_pages_total),
+                bw_pages_total = COALESCE(NULLIF(?, 0), bw_pages_total),
                 updated_at = NOW()
             WHERE agent_id = ? AND name = ?
         `, [
@@ -189,30 +189,37 @@ export const PrinterModel = {
         const normalizedName = this.normalizePrinterName(printerName);
         const today = new Date().toISOString().split('T')[0];
 
-        console.log(`💾 Saving print event: ${agentId} - ${normalizedName} - ${pages} pages (original: ${printerName})`);
+        console.log(`💾 savePrintEvent called:`);
+        console.log(`   agentId: ${agentId}`);
+        console.log(`   printerName: "${printerName}"`);
+        console.log(`   normalizedName: "${normalizedName}"`);
+        console.log(`   pages: ${pages}`);
+        console.log(`   isColor: ${isColor} (type: ${typeof isColor})`);
 
         if (isColor) {
-            await pool.execute(`
-                UPDATE agent_printers 
-                SET pages_today = pages_today + ?,
-                    total_pages = total_pages + ?,
-                    color_pages_today = color_pages_today + ?,
-                    color_pages_total = color_pages_total + ?,
-                    last_print_time = NOW(),
-                    updated_at = NOW()
-                WHERE agent_id = ? AND name = ?
-            `, [pages, pages, pages, pages, agentId, normalizedName]);
+            const [result] = await pool.execute(`
+            UPDATE agent_printers 
+            SET pages_today = pages_today + ?,
+                total_pages = total_pages + ?,
+                color_pages_today = color_pages_today + ?,
+                color_pages_total = color_pages_total + ?,
+                last_print_time = NOW(),
+                updated_at = NOW()
+            WHERE agent_id = ? AND name = ?
+        `, [pages, pages, pages, pages, agentId, normalizedName]);
+            console.log(`   COLOR UPDATE affected rows: ${result.affectedRows}`);
         } else {
-            await pool.execute(`
-                UPDATE agent_printers 
-                SET pages_today = pages_today + ?,
-                    total_pages = total_pages + ?,
-                    bw_pages_today = bw_pages_today + ?,
-                    bw_pages_total = bw_pages_total + ?,
-                    last_print_time = NOW(),
-                    updated_at = NOW()
-                WHERE agent_id = ? AND name = ?
-            `, [pages, pages, pages, pages, agentId, normalizedName]);
+            const [result] = await pool.execute(`
+            UPDATE agent_printers 
+            SET pages_today = pages_today + ?,
+                total_pages = total_pages + ?,
+                bw_pages_today = bw_pages_today + ?,
+                bw_pages_total = bw_pages_total + ?,
+                last_print_time = NOW(),
+                updated_at = NOW()
+            WHERE agent_id = ? AND name = ?
+        `, [pages, pages, pages, pages, agentId, normalizedName]);
+            console.log(`   B&W UPDATE affected rows: ${result.affectedRows}`);
         }
 
         await pool.execute(`

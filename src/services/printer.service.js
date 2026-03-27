@@ -35,7 +35,7 @@ export class PrinterService {
             name: printer.name,
             display_name: printer.displayName || printer.name,
             ip_address: printer.ipAddress || '0.0.0.0',
-            status: generalStatus,  
+            status: generalStatus,
             printer_status_detail: detailedStatus,
             ink_levels: inkLevels,
             low_ink_colors: lowInkColors,
@@ -56,19 +56,20 @@ export class PrinterService {
 
         if (printerState !== undefined) {
             const windowsStatusMap = {
-                1: 'OTHER',    
-                2: 'UNKNOWN',  
-                3: 'READY',    
-                4: 'PRINTING', 
-                5: 'WARMUP',   
-                6: 'PAUSED',   
-                7: 'OFFLINE',  
+                1: 'OTHER',
+                2: 'UNKNOWN',
+                3: 'READY',
+                4: 'PRINTING',
+                5: 'WARMUP',
+                6: 'PAUSED',
+                7: 'OFFLINE',
             };
             const mapped = windowsStatusMap[printerState];
             if (mapped) {
                 if (mapped === 'READY') return 'READY';
                 if (mapped === 'PRINTING') return 'PRINTING';
                 if (mapped === 'OFFLINE') return 'OFFLINE';
+                if (mapped === 'PAUSED') return 'PAUSED';
             }
         }
 
@@ -80,8 +81,8 @@ export class PrinterService {
             'paper_jam': 'ERROR',
             'out_of_paper': 'ERROR',
             'door_open': 'ERROR',
-            'low_ink': 'READY',      
-            'no_ink': 'READY',        
+            'low_ink': 'READY',
+            'no_ink': 'READY',
             'error_other': 'ERROR',
             'warming_up': 'WARMUP',
             'unknown': 'UNKNOWN'

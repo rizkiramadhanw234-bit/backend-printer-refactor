@@ -289,17 +289,14 @@ export class AgentWebSocket {
 
     async handlePrintEvent(agentId, data) {
         try {
-            let { printerName, pages, color } = data;
-
-            // NORMALISASI: Hapus prefix [CANON WSD] 
+            let { printerName, pages, isColor } = data;
             const normalizedName = printerName.replace(/^\[[^\]]*\]\s*/, '').trim();
 
-            console.log(`🖨️ Print event: ${agentId} - ${normalizedName} - ${pages} pages (original: ${printerName})`);
+            console.log(`🖨️ Print event: ${agentId} - ${normalizedName} - ${pages} pages (${isColor ? 'COLOR' : 'B&W'})`);
 
-            // Simpan dengan nama yang sudah dinormalisasi
-            await PrinterModel.savePrintEvent(agentId, normalizedName, pages, color || false);
+            await PrinterModel.savePrintEvent(agentId, normalizedName, pages, isColor || false);
 
-            console.log(`✅ Print event saved and totals updated`);
+            console.log(`✅ Print event saved`);
         } catch (error) {
             console.log(`❌ Failed to save print event:`, error);
         }
