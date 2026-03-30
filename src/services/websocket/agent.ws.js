@@ -172,6 +172,32 @@ export class AgentWebSocket {
             await AgentModel.updateStatus(agentId, 'offline');
             await AgentModel.closeConnection(agentId);
 
+            try {
+                const printers = await PrinterModel.findByAgent(agentId);
+                for (const printer of printers) {
+                    await PrinterModel.update(agentId, printer.name, {
+                        status: 'offline',
+                        printerStatusDetail: 'offline'
+                    });
+                }
+                console.log(`🖨️ Marked ${printers.length} printers offline for agent ${agentId}`);
+
+                // Broadcast printer offline ke dashboard
+                connectionManager.broadcastToDashboards({
+                    type: WEBSOCKET_TYPES.DASHBOARD.PRINTER_UPDATE,
+                    agentId,
+                    printers: printers.map(p => ({
+                        ...p,
+                        status: 'offline',
+                        printerStatusDetail: 'offline'
+                    })),
+                    timestamp: new Date().toISOString()
+                });
+
+            } catch (err) {
+                console.error(`❌ Failed to mark printers offline:`, err);
+            }
+
             connectionManager.broadcastToDashboards({
                 type: WEBSOCKET_TYPES.DASHBOARD.AGENT_DISCONNECTED,
                 agentId,

@@ -22,6 +22,10 @@ import departementRoutes from './src/routes/departement.routes.js';
 import dashboardRoutes from './src/routes/dashboard.routes.js';
 import reportsRoutes from './src/routes/reports.routes.js';
 
+// Reset all printers/agents to offline on startup
+import { PrinterModel } from './src/models/printer.model.js';
+import { AgentModel } from './src/models/agent.model.js';
+
 dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,6 +41,23 @@ app.use(express.json());
 
 // Test database connection
 await testConnection();
+
+try {
+    const agents = await AgentModel.getAll();
+    for (const agent of agents) {
+        await AgentModel.updateStatus(agent.id, 'offline');
+        const printers = await PrinterModel.findByAgent(agent.id);
+        for (const printer of printers) {
+            await PrinterModel.update(agent.id, printer.name, {
+                status: 'offline',
+                printerStatusDetail: 'offline'
+            });
+        }
+    }
+    console.log(`✅ Reset ${agents.length} agents and their printers to offline`);
+} catch (err) {
+    console.error('❌ Startup reset failed:', err.message);
+}
 
 // Initialize WebSocket servers
 new AgentWebSocket();
