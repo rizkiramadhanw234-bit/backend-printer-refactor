@@ -115,8 +115,8 @@ export class PrinterService {
         if (inkLevels) {
             const values = Object.values(inkLevels).filter(v => v !== null);
             if (values.length > 0) {
-                if (values.some(v => v === 0)) return 'no_ink';      // ← no_ink
-                if (values.some(v => v < 15)) return 'low_ink';      // ← low_ink
+                if (values.some(v => v === 0)) return 'no_ink';
+                if (values.some(v => v < 15)) return 'low_ink';
             }
         }
 

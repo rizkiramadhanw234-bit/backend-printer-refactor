@@ -1,7 +1,7 @@
 class ConnectionManager {
   constructor() {
-    this.agents = new Map();      
-    this.dashboards = new Set(); 
+    this.agents = new Map();
+    this.dashboards = new Set();
   }
 
   addAgent(agentId, ws) {

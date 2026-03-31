@@ -12,7 +12,7 @@ export class DashboardWebSocket {
         this.path = '/ws/dashboard';
 
         this.wss = new WebSocketServer({
-            port: this.port,  
+            port: this.port,
             host: '0.0.0.0',
             path: this.path
         });

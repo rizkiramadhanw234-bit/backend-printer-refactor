@@ -1,11 +1,11 @@
-import { CompanyModel } from "../models/company.model.js"; 
+import { CompanyModel } from "../models/company.model.js";
 
 export const companyController = {
 
     // GET all companies
     async getAllCompanies(req, res) {
         try {
-            const companies = await CompanyModel.getAllCompanies(); 
+            const companies = await CompanyModel.getAllCompanies();
 
             res.json({
                 success: true,
@@ -13,7 +13,7 @@ export const companyController = {
                 data: companies
             });
         } catch (error) {
-            console.error("❌ Error getting companies:", error);
+            console.error("Error getting companies:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -25,8 +25,8 @@ export const companyController = {
     async getCompany(req, res) {
         try {
             const { companyId } = req.params;
-            const company = await CompanyModel.getCompany(companyId); 
-            
+            const company = await CompanyModel.getCompany(companyId);
+
             if (!company) {
                 return res.status(404).json({
                     success: false,
@@ -39,7 +39,7 @@ export const companyController = {
                 data: company
             });
         } catch (error) {
-            console.error("❌ Error getting company:", error);
+            console.error("Error getting company:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -51,8 +51,6 @@ export const companyController = {
     async createCompany(req, res) {
         try {
             const { name, address, email, phone, website } = req.body;
-            
-            console.log("📝 Creating company:", { name, email });
 
             // Validasi
             if (!name) {
@@ -66,8 +64,6 @@ export const companyController = {
                 name, address, email, phone, website
             });
 
-            console.log(`✅ Company created: ${company.id} - ${name}`);
-
             res.status(201).json({
                 success: true,
                 message: "Company created successfully",
@@ -75,15 +71,15 @@ export const companyController = {
             });
 
         } catch (error) {
-            console.error("❌ Error creating company:", error);
-            
+            console.error("Error creating company:", error);
+
             if (error.code === "ER_DUP_ENTRY") {
                 return res.status(409).json({
                     success: false,
                     error: "Company with this name already exists"
                 });
             }
-            
+
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -100,15 +96,13 @@ export const companyController = {
             const success = await CompanyModel.updateCompany(companyId, {
                 name, address, email, phone, website
             });
-            
+
             if (!success) {
                 return res.status(404).json({
                     success: false,
                     error: "Company not found"
                 });
             }
-
-            console.log(`✅ Company updated: ${companyId}`);
 
             res.json({
                 success: true,
@@ -124,7 +118,7 @@ export const companyController = {
             });
 
         } catch (error) {
-            console.error("❌ Error updating company:", error);
+            console.error("Error updating company:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -138,7 +132,7 @@ export const companyController = {
             const { companyId } = req.params;
 
             const success = await CompanyModel.deleteCompany(companyId);
-            
+
             if (!success) {
                 return res.status(404).json({
                     success: false,
@@ -146,15 +140,13 @@ export const companyController = {
                 });
             }
 
-            console.log(`🗑️ Company deleted: ${companyId}`);
-
             res.json({
                 success: true,
                 message: "Company deleted successfully"
             });
 
         } catch (error) {
-            console.error("❌ Error deleting company:", error);
+            console.error("Error deleting company:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"

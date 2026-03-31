@@ -87,7 +87,7 @@ export const validateHeartbeat = (req, res, next) => {
   next();
 };
 
-// ==================== PRINTER VALIDATORS ====================
+// PRINTER VALIDATORS 
 
 export const validatePrinterName = (req, res, next) => {
   const { printerName } = req.params;
@@ -137,7 +137,7 @@ export const validatePrinterUpdate = (req, res, next) => {
   const updates = req.body;
 
   const allowedFields = [
-    'status', 'printerStatusDetail', 'inkLevels', 'pagesToday', 
+    'status', 'printerStatusDetail', 'inkLevels', 'pagesToday',
     'totalPages', 'lastPrintTime', 'colorPagesToday', 'bwPagesToday',
     'colorPagesTotal', 'bwPagesTotal', 'lowInkColors'
   ];
@@ -189,7 +189,7 @@ export const validatePrinterUpdate = (req, res, next) => {
   next();
 };
 
-// ==================== AUTH VALIDATORS ====================
+// AUTH VALIDATORS 
 
 export const validateAgentLogin = (req, res, next) => {
   const { agent_id, api_key } = req.body;
@@ -239,7 +239,7 @@ export const validateAdminLogin = (req, res, next) => {
   next();
 };
 
-// ==================== COMPANY/DEPARTMENT VALIDATORS ====================
+// COMPANY/DEPARTMENT VALIDATORS 
 
 export const validateCompany = (req, res, next) => {
   const { name } = req.body;
@@ -298,7 +298,7 @@ export const validateDepartment = (req, res, next) => {
   next();
 };
 
-// ==================== REPORT VALIDATORS ====================
+// REPORT VALIDATORS 
 
 export const validateDateRange = (req, res, next) => {
   const { startDate, endDate, date } = req.query;
@@ -412,7 +412,7 @@ function isValidUrl(url) {
 function isValidDate(dateStr) {
   const regex = /^\d{4}-\d{2}-\d{2}$/;
   if (!regex.test(dateStr)) return false;
-  
+
   const date = new Date(dateStr);
   return date instanceof Date && !isNaN(date);
 }
@@ -422,16 +422,16 @@ function isValidDate(dateStr) {
 export const checkAgentExists = async (req, res, next) => {
   try {
     const { agentId } = req.params;
-    
+
     const agent = await AgentModel.findById(agentId);
-    
+
     if (!agent) {
       return res.status(404).json({
         success: false,
         error: `Agent with ID '${agentId}' not found`
       });
     }
-    
+
     req.agentData = agent;
     next();
   } catch (error) {
@@ -445,21 +445,21 @@ export const checkAgentExists = async (req, res, next) => {
 
 export const checkAgentActive = (req, res, next) => {
   const agent = req.agentData;
-  
+
   if (agent.status === 'blocked') {
     return res.status(403).json({
       success: false,
       error: `Agent is blocked: ${agent.blocked_reason || 'No reason provided'}`
     });
   }
-  
+
   if (agent.status === 'pending') {
     return res.status(403).json({
       success: false,
       error: 'Agent registration is pending approval'
     });
   }
-  
+
   next();
 };
 
@@ -506,31 +506,31 @@ export default {
   validateAgentRegistration,
   validateAgentId,
   validateHeartbeat,
-  
+
   // Printer
   validatePrinterName,
   validatePrintEvent,
   validatePrinterUpdate,
-  
+
   // Auth
   validateAgentLogin,
   validateAdminLogin,
-  
+
   // Company/Department
   validateCompany,
   validateDepartment,
-  
+
   // Reports
   validateDateRange,
   validateMonthlyReport,
-  
+
   // WebSocket
   validateWebSocketCommand,
-  
+
   // Async validators
   checkAgentExists,
   checkAgentActive,
-  
+
   // Pagination
   validatePagination
 };

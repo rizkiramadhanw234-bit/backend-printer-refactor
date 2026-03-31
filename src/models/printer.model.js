@@ -46,7 +46,7 @@ export const PrinterModel = {
             const finalTotalPages = Math.max(existingTotal, total_pages || 0);
             const finalPagesToday = Math.max(existingToday, pages_today || 0);
 
-            console.log(`📊 Printer ${normalizedName}: DB total=${existingTotal}, Agent kirim=${total_pages}, Final=${finalTotalPages}`);
+            console.log(`Printer ${normalizedName}: DB total=${existingTotal}, Agent kirim=${total_pages}, Final=${finalTotalPages}`);
 
             await pool.execute(`
             UPDATE agent_printers SET
@@ -189,7 +189,7 @@ export const PrinterModel = {
         const normalizedName = this.normalizePrinterName(printerName);
         const today = new Date().toISOString().split('T')[0];
 
-        console.log(`💾 savePrintEvent called:`);
+        console.log(`savePrintEvent called:`);
         console.log(`   agentId: ${agentId}`);
         console.log(`   printerName: "${printerName}"`);
         console.log(`   normalizedName: "${normalizedName}"`);

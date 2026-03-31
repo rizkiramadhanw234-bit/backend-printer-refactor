@@ -7,14 +7,14 @@ export const departementController = {
         try {
             const { companyId } = req.params;
             const departements = await DepartementModel.getDepartementsByCompany(companyId);
-            
+
             res.json({
                 success: true,
                 count: departements.length,
                 data: departements
             });
         } catch (error) {
-            console.error("❌ Error getting departements by company:", error);
+            console.error("Error getting departements by company:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -36,14 +36,14 @@ export const departementController = {
             }
 
             const departement = await DepartementModel.createDepartement(companyId, name);
-            
+
             res.status(201).json({
                 success: true,
                 message: "Departement created successfully",
                 data: departement
             });
         } catch (error) {
-            console.error("❌ Error creating departement:", error);
+            console.error("Error creating departement:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -65,7 +65,7 @@ export const departementController = {
             }
 
             const success = await DepartementModel.updateDepartement(departementId, name);
-            
+
             if (!success) {
                 return res.status(404).json({
                     success: false,
@@ -79,7 +79,7 @@ export const departementController = {
                 data: { id: departementId, name }
             });
         } catch (error) {
-            console.error("❌ Error updating departement:", error);
+            console.error("Error updating departement:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"
@@ -93,7 +93,7 @@ export const departementController = {
             const { departementId } = req.params;
 
             const success = await DepartementModel.deleteDepartement(departementId);
-            
+
             if (!success) {
                 return res.status(404).json({
                     success: false,
@@ -106,7 +106,7 @@ export const departementController = {
                 message: "Departement deleted successfully"
             });
         } catch (error) {
-            console.error("❌ Error deleting departement:", error);
+            console.error("Error deleting departement:", error);
             res.status(500).json({
                 success: false,
                 error: "Internal server error"

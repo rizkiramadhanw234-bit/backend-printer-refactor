@@ -5,14 +5,14 @@ import { logger } from '../utils/logger.js';
 import crypto from 'crypto';
 
 export class AgentService {
-  
+
   /**
    * Register a new agent or update existing one
    */
   async registerAgent(agentData, ipAddress) {
-    const { 
+    const {
       hostname, macAddress, contactPerson, platform = 'windows',
-      departmentId, customAgentId, apiKey, agentToken 
+      departmentId, customAgentId, apiKey, agentToken
     } = agentData;
 
     // Generate IDs if not provided
@@ -37,8 +37,8 @@ export class AgentService {
         last_seen: new Date()
       });
 
-      logger.info(`✅ Agent updated: ${existingAgent.id}`);
-      
+      logger.info(`Agent updated: ${existingAgent.id}`);
+
       return {
         agentId: existingAgent.id,
         apiKey: finalApiKey,
@@ -60,8 +60,8 @@ export class AgentService {
         agent_token: finalAgentToken
       });
 
-      logger.info(`✅ New agent created: ${finalAgentId}`);
-      
+      logger.info(`New agent created: ${finalAgentId}`);
+
       return {
         agentId: finalAgentId,
         apiKey: finalApiKey,
@@ -81,7 +81,7 @@ export class AgentService {
     // Save heartbeat data if provided
     if (systemData && Object.keys(systemData).length > 0) {
       const printers = await PrinterModel.findByAgent(agentId);
-      
+
       await AgentModel.saveHeartbeat(agentId, {
         cpuUsage: systemData.cpu_usage,
         memoryUsage: systemData.memory_usage,
@@ -93,7 +93,7 @@ export class AgentService {
 
     // Check if agent is connected via WebSocket
     const isConnected = connectionManager.hasAgent(agentId);
-    
+
     return {
       agentId,
       lastSeen: new Date().toISOString(),
@@ -109,7 +109,7 @@ export class AgentService {
     if (!agent) return null;
 
     const printers = await PrinterModel.findByAgent(agentId);
-    
+
     // Calculate statistics
     const stats = {
       totalPrinters: printers.length,
@@ -160,7 +160,7 @@ export class AgentService {
    */
   async validateCredentials(agentId, apiKey) {
     const agent = await AgentModel.findByApiKey(apiKey);
-    
+
     if (!agent || agent.id !== agentId) {
       return { valid: false, error: 'Invalid agent ID or API key' };
     }
@@ -173,8 +173,8 @@ export class AgentService {
       return { valid: false, error: 'Agent registration is pending approval' };
     }
 
-    return { 
-      valid: true, 
+    return {
+      valid: true,
       agent: {
         id: agent.id,
         name: agent.name,
@@ -188,7 +188,7 @@ export class AgentService {
    */
   async rotateAgentToken(agentId) {
     const newToken = this.generateAgentToken();
-    
+
     await AgentModel.update(agentId, {
       agent_token: newToken,
       token_rotated_at: new Date()
@@ -205,7 +205,7 @@ export class AgentService {
       agentId,
       websocketConnected: connectionManager.hasAgent(agentId),
       lastSeen: null, // Will be filled from DB if needed
-      dashboardConnected: false // For future use
+      dashboardConnected: false
     };
   }
 
@@ -214,16 +214,16 @@ export class AgentService {
    */
   async sendCommand(agentId, command, data = {}) {
     const ws = connectionManager.getAgent(agentId);
-    
+
     if (!ws) {
-      return { 
-        success: false, 
-        error: 'Agent is not connected via WebSocket' 
+      return {
+        success: false,
+        error: 'Agent is not connected via WebSocket'
       };
     }
 
     const commandId = `cmd_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    
+
     const message = {
       type: 'command',
       commandId,
@@ -241,7 +241,7 @@ export class AgentService {
     };
   }
 
-  // ==================== PRIVATE HELPERS ====================
+  // PRIVATE HELPERS 
 
   generateAgentId() {
     return `AGENT_${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
@@ -257,7 +257,7 @@ export class AgentService {
 
   calculateLastPrintMinutes(printers) {
     let mostRecent = null;
-    
+
     printers.forEach(printer => {
       if (printer.lastPrintTime) {
         const printTime = new Date(printer.lastPrintTime).getTime();
@@ -268,7 +268,7 @@ export class AgentService {
     });
 
     if (!mostRecent) return null;
-    
+
     return Math.floor((Date.now() - mostRecent) / (1000 * 60));
   }
 
@@ -281,10 +281,10 @@ export class AgentService {
 
     // Find agents with last_seen older than cutoff
     const offlineAgents = await AgentModel.findOffline(cutoffTime);
-    
+
     for (const agent of offlineAgents) {
       await AgentModel.updateStatus(agent.id, 'offline');
-      
+
       // Remove from WebSocket connections if still there
       if (connectionManager.hasAgent(agent.id)) {
         connectionManager.removeAgent(agent.id);

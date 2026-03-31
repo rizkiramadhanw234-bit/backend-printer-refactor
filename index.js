@@ -54,9 +54,9 @@ try {
             });
         }
     }
-    console.log(`✅ Reset ${agents.length} agents and their printers to offline`);
+    console.log(`Reset ${agents.length} agents and their printers to offline`);
 } catch (err) {
-    console.error('❌ Startup reset failed:', err.message);
+    console.error('Startup reset failed:', err.message);
 }
 
 // Initialize WebSocket servers
@@ -91,9 +91,9 @@ cron.schedule('0 0 * * *', async () => {
                 color_pages_today = 0,
                 bw_pages_today = 0
         `);
-        console.log('✅ pages_today reset successfully');
+        console.log('pages_today reset successfully');
     } catch (error) {
-        console.error('❌ Failed to reset pages_today:', error.message);
+        console.error('Failed to reset pages_today:', error.message);
     }
 }, {
     timezone: "Asia/Jakarta"
