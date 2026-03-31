@@ -492,6 +492,40 @@ router.post("/:agentId/printer/resume", authenticateApiKey, async (req, res) => 
   }
 });
 
+// update agent
+router.patch("/:agentId", authMiddleware, async (req, res) => {
+  try {
+    const { agentId } = req.params;
+    const { hostname, name } = req.body;
+
+    const agent = await AgentModel.findById(agentId);
+    if (!agent) {
+      return res.status(404).json({ success: false, error: "Agent not found" });
+    }
+
+    const allowedFields = { hostname, name };
+    const updates = Object.fromEntries(
+      Object.entries(allowedFields).filter(([_, v]) => v !== undefined)
+    );
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, error: "No valid fields to update" });
+    }
+
+    await AgentModel.update(agentId, updates);
+
+    res.json({
+      success: true,
+      message: "Agent updated successfully",
+      agentId,
+      updates
+    });
+  } catch (error) {
+    console.error("Error updating agent:", error);
+    res.status(500).json({ success: false, error: "Internal server error" });
+  }
+});
+
 // Delete agent
 router.delete("/:agentId", authMiddleware, async (req, res) => {
   try {
