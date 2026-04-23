@@ -10,8 +10,13 @@ let printers = new Map();
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT * FROM agent_printers 
-      ORDER BY created_at DESC
+            SELECT 
+        ap.*,
+        a.hostname
+      FROM agent_printers ap
+      LEFT JOIN agents a ON a.id = ap.agent_id
+      ORDER BY ap.created_at DESC
+
     `);
 
     res.json({

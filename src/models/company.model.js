@@ -28,37 +28,40 @@ export const CompanyModel = {
     async createCompany(companyData) {
         const { name, address, email, phone, website } = companyData;
         const id = uuidv4();
-        
-        const [result] = await pool.execute(
+        await pool.execute(
             `INSERT INTO company (id, name, address, email, phone, website)
              VALUES (?, ?, ?, ?, ?, ?)`,
             [id, name, address || '', email || '', phone || '', website || '']
         );
-        
-        return { id, ...companyData };
+        const [rows] = await pool.execute(
+            "SELECT * FROM company WHERE id = ?",
+            [id]
+        );
+
+        return rows[0];
     },
 
     async updateCompany(companyId, companyData) {
         const { name, address, email, phone, website } = companyData;
-        
+
         const [result] = await pool.execute(
             `UPDATE company 
              SET name = ?, address = ?, email = ?, phone = ?, website = ?
              WHERE id = ?`,
             [name, address, email, phone, website, companyId]
         );
-        
+
         return result.affectedRows > 0;
     },
 
     async deleteCompany(companyId) {
         await pool.execute("DELETE FROM departement WHERE company_id = ?", [companyId]);
-        
+
         const [result] = await pool.execute(
             "DELETE FROM company WHERE id = ?",
             [companyId]
         );
-        
+
         return result.affectedRows > 0;
     }
 };
