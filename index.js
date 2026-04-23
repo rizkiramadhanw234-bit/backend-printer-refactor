@@ -21,6 +21,7 @@ import companyRoutes from './src/routes/company.routes.js';
 import departementRoutes from './src/routes/departement.routes.js';
 import dashboardRoutes from './src/routes/dashboard.routes.js';
 import reportsRoutes from './src/routes/reports.routes.js';
+import printerGroupRoutes from './src/routes/printer.groups.route.js';
 
 // Reset all printers/agents to offline on startup
 import { PrinterModel } from './src/models/printer.model.js';
@@ -72,6 +73,7 @@ app.use('/api/company', companyRoutes);
 app.use('/api/departement', departementRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/printer-groups', printerGroupRoutes);
 
 app.use((err, req, res, next) => {
     console.error('Server error:', err);

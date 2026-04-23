@@ -5,9 +5,6 @@ import { logger } from '../utils/logger.js';
 
 export class ReportService {
 
-    /**
-     * Generate daily report for all agents or specific agent
-     */
     async generateDailyReport(date = null, filters = {}) {
         const targetDate = date || new Date().toISOString().split('T')[0];
         const { agentId, companyId } = filters;

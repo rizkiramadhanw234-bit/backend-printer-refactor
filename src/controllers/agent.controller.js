@@ -31,8 +31,6 @@ export const registerAgent = async (req, res) => {
             agentToken
         } = req.body;
 
-        console.log('Registration request:', req.body);
-
         if (!hostname || !macAddress || !contactPerson) {
             return res.status(400).json({
                 success: false,
